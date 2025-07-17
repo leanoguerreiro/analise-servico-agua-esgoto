@@ -212,11 +212,11 @@ filtrar_e_eda_norte <- function(servico_agua_esgoto) { # servico_agua_esgoto ago
 detectar_outliers_norte <- function(servico_agua_esgoto_norte) {
   cli::cli_h1("Análise de Outliers (Critério IQR) - Região Norte")
   
-  # Debugging: Print column names to confirm what's available
-  cli::cli_alert_info("Column names in servico_agua_esgoto_norte before outlier detection:")
+  # Exibe os nomes das colunas
+  cli::cli_alert_info("Nome das colunas em servico_agua_esgoto_norte antes da detecção de outlers:")
   print(colnames(servico_agua_esgoto_norte)) 
   
-  # Verify column existence before proceeding
+  # Verifica se há uma coluna já existente antes do processo
   if (!"populacao_urbana_atendida_agua" %in% colnames(servico_agua_esgoto_norte)) {
     cli::cli_alert_danger("Erro crítico: Coluna 'populacao_urbana_atendida_agua' não encontrada no dataframe para detecção de outliers. Verifique a origem dos dados.")
     stop("Coluna essencial 'populacao_urbana_atendida_agua' ausente.")
