@@ -144,6 +144,14 @@ realizar_eda_e_tratar_nas <- function(dados_lazy, num_linhas_amostras) {
     )
   cli::cli_alert_success("Colunas de percentuais de atendimento criadas no dataset completo.")
   
+  # Tratamento de outliers superiores para percentuais acima de 100%
+  servico_agua_esgoto <- servico_agua_esgoto |>
+    mutate(
+      perc_agua_atendida = ifelse(perc_agua_atendida > 100, 100, perc_agua_atendida),
+      perc_esgoto_atendido = ifelse(perc_esgoto_atendido > 100, 100, perc_esgoto_atendido)
+    )
+  cli::cli_alert_success("Valores de percentual acima de 100% corrigidos.")
+  
   # DIAGNÓSTICO: Verificar colunas antes de retornar
   cli::cli_alert_info("Colunas em 'servico_agua_esgoto' antes de retornar de 'realizar_eda_e_tratar_nas':")
   print(colnames(servico_agua_esgoto))
