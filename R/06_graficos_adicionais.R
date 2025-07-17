@@ -1,99 +1,146 @@
-# R/04_visualizacoes_mapas.R
+# R/06_graficos_adicionais.R
 
-gerar_mapas_coropleticos <- function(regioes_sf, dados_regiao_2021, estados, servico_agua_esgoto_norte) {
-  cli::cli_h1("Mapas Coropléticos de Percentuais por Região (Ano 2021) com Rótulos")
-  
+gerar_analises_agregadas_e_graficos_adicionais <- function(servico_agua_esgoto_norte) {
+  cli::cli_h1("Análises Agregadas e Gráficos Adicionais - Região Norte")
+
   # Cria a pasta 'graficos' se ela não existir
   dir.create("graficos", showWarnings = FALSE)
   cli::cli_alert_info("Verificado/criado o diretório 'graficos/'.")
   
-  mapa_dados_regiao <- regioes_sf |>
-    left_join(dados_regiao_2021, by = "regiao")
+  # 1. Total de População Urbana Atendida por Água por ano na Região Norte
+  pop_agua_ano_norte <- servico_agua_esgoto_norte |>
+    group_by(ano) |>
+    summarise(total_pop_agua = sum(populacao_urbana_atendida_agua, na.rm = TRUE)) |>
+    collect()
   
-  mapa_dados_regiao_com_labels <- mapa_dados_regiao |>
-    mutate(
-      centroide = sf::st_centroid(geometry),
-      label_perc_agua = paste0(regiao, "\n", round(media_perc_agua_regiao, 1), "%"),
-      label_perc_esgoto = paste0(regiao, "\n", round(media_perc_esgoto_regiao, 1), "%")
-    )
+  p_pop_agua_ano_norte <- ggplot(pop_agua_ano_norte, aes(x = ano, y = total_pop_agua)) +
+    geom_line(color = "blue", linewidth = 1) +
+    geom_point(color = "red", size = 2) +
+    labs(title = "Distribuição da População Urbana Atendida por Água por Ano (Região Norte)", x = "Ano", y = "População Atendida") +
+    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+    scale_x_continuous(breaks = unique(pop_agua_ano_norte$ano)) +
+    theme_minimal() + theme(panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
+  print(p_pop_agua_ano_norte)
+  ggsave("graficos/total_pop_agua_ano_norte.png", plot = p_pop_agua_ano_norte, width = 10, height = 6, dpi = 300)
+  cli::cli_alert_success("Gráfico de total de população atendida por água (Norte) por ano salvo.")
   
-  # MAPA 1: Média de Percentual de População Atendida por Água por Região (2021)
-  p_mapa_perc_agua_regiao_melhorado <- ggplot(mapa_dados_regiao_com_labels) +
-    geom_sf(aes(fill = media_perc_agua_regiao), color = "black", linewidth = 0.4) +
-    scale_fill_viridis_c(na.value = "grey80", option = "viridis", name = "Média de Atendimento de Água (%)", labels = label_number(suffix = "%"), breaks = c(20, 40, 60, 80, 100), limits = c(0, 100)) +
-    geom_sf_text(aes(geometry = centroide, label = label_perc_agua), stat = "sf_coordinates", color = "white", size = 4, fontface = "bold", bg.color = "black", bg.r = 0.05, check_overlap = TRUE) +
-    labs(title = "Cobertura Média de Água Urbana por Região – Brasil (2021)", subtitle = "Percentual da População Urbana Atendida") +
-    theme_void() +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16, margin = margin(b = 10)), plot.subtitle = element_text(hjust = 0.5, size = 12, margin = margin(b = 15)), legend.position = "bottom", legend.title = element_text(size = 12), legend.text = element_text(size = 10), panel.background = element_rect(fill = "lightblue", color = NA), plot.background = element_rect(fill = "lightblue", color = NA))
-  print(p_mapa_perc_agua_regiao_melhorado)
-  ggsave("graficos/mapa_perc_agua_regiao_2021_melhorado.png", plot = p_mapa_perc_agua_regiao_melhorado, width = 12, height = 9, dpi = 300)
-  cli::cli_alert_success("Mapa de percentual de água por região (2021) salvo.")
+  # 2. Média de Volume de Água Produzido por UF na Região Norte
+  volume_uf_norte <- servico_agua_esgoto_norte |>
+    group_by(sigla_uf_nome) |>
+    summarise(media_volume_produzido = mean(volume_agua_produzido, na.rm = TRUE)) |>
+    arrange(desc(media_volume_produzido)) |>
+    collect()
   
-  # MAPA 2: Média de Percentual de População Atendida por Esgoto por Região (2021)
-  p_mapa_perc_esgoto_regiao_melhorado <- ggplot(mapa_dados_regiao_com_labels) +
-    geom_sf(aes(fill = media_perc_esgoto_regiao), color = "black", linewidth = 0.4) +
-    scale_fill_viridis_c(na.value = "grey80", option = "magma", name = "Média de Atendimento de Esgoto (%)", labels = label_number(suffix = "%"), breaks = c(20, 40, 60, 80, 100), limits = c(0, 100)) +
-    geom_sf_text(aes(geometry = centroide, label = label_perc_esgoto), stat = "sf_coordinates", color = "white", size = 4, fontface = "bold", bg.color = "black", bg.r = 0.05, check_overlap = TRUE) +
-    labs(title = "Cobertura Média de Esgoto Urbano por Região – Brasil (2021)", subtitle = "Percentual da População Urbana Atendida") +
-    theme_void() +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16, margin = margin(b = 10)), plot.subtitle = element_text(hjust = 0.5, size = 12, margin = margin(b = 15)), legend.position = "bottom", legend.title = element_text(size = 12), legend.text = element_text(size = 10), panel.background = element_rect(fill = "lightblue", color = NA), plot.background = element_rect(fill = "lightblue", color = NA))
-  print(p_mapa_perc_esgoto_regiao_melhorado)
-  ggsave("graficos/mapa_perc_esgoto_regiao_2021_melhorado.png", plot = p_mapa_perc_esgoto_regiao_melhorado, width = 12, height = 9, dpi = 300)
-  cli::cli_alert_success("Mapa de percentual de esgoto por região (2021) salvo.")
+  p_volume_uf_norte <- ggplot(volume_uf_norte,
+                              aes(x = reorder(sigla_uf_nome, -media_volume_produzido), y = media_volume_produzido)) +
+    geom_bar(stat = "identity", fill = "steelblue") +
+    labs(title = "Média de Volume de Água Produzido por UF (Região Norte)", x = "UF", y = "Média de Volume (m³)") +
+    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+    theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
+  print(p_volume_uf_norte)
+  ggsave("graficos/volume_agua_uf_norte.png", plot = p_volume_uf_norte, width = 10, height = 6, dpi = 300)
+  cli::cli_alert_success("Gráfico de média de volume de água produzido por UF (Norte) salvo.")
+
+  # NOVO GRÁFICO: Média de Volume de Água Produzido vs. Consumido por UF na Região Norte
+  cli::cli_h2("Comparação da Média de Volume de Água Produzido vs. Consumido por UF (Região Norte)")
   
-  cli::cli_h1("Mapas Coropléticos da Região Norte")
-  
-  servico_agua_esgoto_norte_for_map <- servico_agua_esgoto_norte 
-  anos_disponiveis_mapa_norte <- servico_agua_esgoto_norte_for_map |> distinct(ano) |> pull(ano)
-  
-  if (length(anos_disponiveis_mapa_norte) == 0) {
-    cli::cli_alert_warning("Não há anos disponíveis nos dados da Região Norte para gerar mapas por UF.")
-    return(NULL)
-  }
-  ano_mapa_norte <- max(anos_disponiveis_mapa_norte, na.rm = TRUE)
-  
-  agua_esgoto_por_uf_norte <- servico_agua_esgoto_norte_for_map |>
-    filter(ano == ano_mapa_norte) |>
-    group_by(sigla_uf, sigla_uf_nome, regiao) |>
+  volume_produzido_consumido_uf_norte <- servico_agua_esgoto_norte |>
+    group_by(sigla_uf_nome) |>
     summarise(
-      media_pop_agua = mean(populacao_urbana_atendida_agua, na.rm = TRUE),
-      media_pop_esgoto = mean(populacao_urbana_atendida_esgoto, na.rm = TRUE),
-      media_perc_agua = mean(perc_agua_atendida, na.rm = TRUE),
-      media_perc_esgoto = mean(perc_esgoto_atendido, na.rm = TRUE),
-      .groups = 'drop'
-    ) |> ungroup()
+      media_volume_produzido = mean(volume_agua_produzido, na.rm = TRUE),
+      media_volume_consumido = mean(volume_agua_consumido, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    # Pivotar para formato longo para facilitar a plotagem com ggplot2
+    pivot_longer(
+      cols = starts_with("media_volume"),
+      names_to = "tipo_volume",
+      values_to = "valor_volume"
+    ) |>
+    mutate(
+      tipo_volume = case_when(
+        tipo_volume == "media_volume_produzido" ~ "Produzido",
+        tipo_volume == "media_volume_consumido" ~ "Consumido",
+        TRUE ~ tipo_volume # Garante que outros tipos, se houver, sejam mantidos
+      ),
+      # Reordenar as UFs com base na soma total do volume (para empilhamento horizontal)
+      sigla_uf_nome = fct_reorder(sigla_uf_nome, valor_volume, .fun = sum, .desc = FALSE) # Ordem inversa para que o maior fique em cima
+    ) |>
+    collect()
+
+  p_volume_prod_cons_uf_norte <- ggplot(volume_produzido_consumido_uf_norte, 
+                                        aes(y = sigla_uf_nome, x = valor_volume, fill = tipo_volume)) + # ALTERADO: x e y invertidos
+    geom_bar(stat = "identity", position = "stack", color = "white", linewidth = 0.2) +
+    labs(
+      title = "Média de Volume de Água Produzido vs. Consumido por UF (Região Norte)",
+      y = "UF", # ALTERADO: y-axis label
+      x = "Média de Volume (m³)", # ALTERADO: x-axis label
+      fill = "Tipo de Volume"
+    ) +
+    scale_x_continuous(labels = label_number(scale_cut = cut_short_scale())) + # ALTERADO: escala no eixo x
+    scale_fill_manual(values = c("Produzido" = "darkgreen", "Consumido" = "darkblue")) +
+    theme_minimal() +
+    theme(
+      axis.text.y = element_text(angle = 0, hjust = 1), # ALTERADO: ajuste para texto no eixo Y
+      panel.background = element_rect(fill = "white"),
+      plot.background = element_rect(fill = "white"),
+      legend.position = "bottom"
+    )
+  print(p_volume_prod_cons_uf_norte)
+  ggsave("graficos/volume_produzido_consumido_uf_norte.png", plot = p_volume_prod_cons_uf_norte, width = 12, height = 7, dpi = 300)
+  cli::cli_alert_success("Gráfico de comparação de volume produzido vs. consumido por UF (Norte) salvo.")
+
+  # 3. Média de Percentual de População Atendida por Esgoto por UF na Região Norte
+  perc_esgoto_uf_norte <- servico_agua_esgoto_norte |>
+    group_by(sigla_uf_nome) |>
+    summarise(media_perc_esgoto = mean(perc_esgoto_atendido, na.rm = TRUE)) |>
+    arrange(desc(media_perc_esgoto)) |>
+    collect()
   
-  estados_mapa_servicos_norte <- estados |>
-    filter(abbrev_state %in% c("AM", "RR", "AP", "PA", "RO", "AC", "TO")) |>
-    left_join(agua_esgoto_por_uf_norte, by = c("abbrev_state" = "sigla_uf"))
+  p_perc_esgoto_uf_norte <- ggplot(perc_esgoto_uf_norte,
+                                   aes(x = reorder(sigla_uf_nome, -media_perc_esgoto), y = media_perc_esgoto, fill = sigla_uf_nome)) +
+    geom_bar(stat = "identity") +
+    labs(title = "Média do Percentual de População Atendida por Esgoto por UF (Região Norte)", x = "UF", y = "Média % Atendido") +
+    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+    theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white")) + guides(fill = "none")
+  print(p_perc_esgoto_uf_norte)
+  ggsave("graficos/mean_perc_esgoto_uf_norte.png", plot = p_perc_esgoto_uf_norte, width = 10, height = 6, dpi = 300)
+  cli::cli_alert_success("Gráfico de média de percentual de esgoto atendido por UF (Norte) salvo.")
   
-  # Mapa Coroplético: Média de População Atendida por Água por UF na Região Norte
-  p_mapa_agua_norte <- ggplot(estados_mapa_servicos_norte) +
-    geom_sf(aes(fill = media_pop_agua), color = "black", linewidth = 0.2) +
-    scale_fill_viridis_c(na.value = "grey80", option = "viridis", name = "Média Pop. Atendida Água", labels = label_number(scale_cut = cut_short_scale())) +
-    labs(title = paste("Média de População Urbana Atendida por Água por UF (Região Norte) – Ano", ano_mapa_norte), subtitle = "Dados do ano mais recente disponível") +
-    theme_void() + theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14), plot.subtitle = element_text(hjust = 0.5, size = 10), legend.position = "bottom", panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
-  print(p_mapa_agua_norte)
-  ggsave("graficos/mapa_pop_agua_atendida_norte.png", plot = p_mapa_agua_norte, width = 10, height = 8, dpi = 300)
-  cli::cli_alert_success("Mapa de população atendida por água (UF, Norte) salvo.")
+  # 4. Evolução do Percentual de População Atendida por Água por UF na Região Norte
+  perc_agua_uf_evolucao_norte <- servico_agua_esgoto_norte |>
+    filter(!is.na(perc_agua_atendida), !is.na(sigla_uf)) |>
+    group_by(ano, sigla_uf) |>
+    summarise(media_perc_agua = mean(perc_agua_atendida, na.rm = TRUE), .groups = "drop") |>
+    collect()
   
-  # Mapa Coroplético: Média de População Atendida por Esgoto por UF na Região Norte
-  p_mapa_esgoto_norte <- ggplot(estados_mapa_servicos_norte) +
-    geom_sf(aes(fill = media_pop_esgoto), color = "black", linewidth = 0.2) +
-    scale_fill_viridis_c(na.value = "grey80", option = "magma", name = "Média Pop. Atendida Esgoto", labels = label_number(scale_cut = cut_short_scale())) +
-    labs(title = paste("Média de População Urbana Atendida por Esgoto por UF (Região Norte) – Ano", ano_mapa_norte), subtitle = "Dados do ano mais recente disponível") +
-    theme_void() + theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14), plot.subtitle = element_text(hjust = 0.5, size = 10), legend.position = "bottom", panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
-  print(p_mapa_esgoto_norte)
-  ggsave("graficos/mapa_pop_esgoto_atendida_norte.png", plot = p_mapa_esgoto_norte, width = 10, height = 8, dpi = 300)
-  cli::cli_alert_success("Mapa de população atendida por esgoto (UF, Norte) salvo.")
+  p_perc_agua_uf_evolucao_norte <- ggplot(perc_agua_uf_evolucao_norte,
+                                          aes(x = ano, y = media_perc_agua, color = sigla_uf)) +
+    geom_line(linewidth = 1) +
+    geom_point(size = 2) +
+    labs(title = "Evolução do Percentual de População Urbana Atendida por Água por UF (Região Norte)", x = "Ano", y = "Média % Atendido") +
+    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+    scale_x_continuous(breaks = unique(perc_agua_uf_evolucao_norte$ano)) +
+    theme_minimal() + theme(panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
+  print(p_perc_agua_uf_evolucao_norte)
+  ggsave("graficos/evolution_perc_agua_uf_norte.png", plot = p_perc_agua_uf_evolucao_norte, width = 10, height = 6, dpi = 300)
+  cli::cli_alert_success("Gráfico de evolução do percentual de água atendida por UF (Norte) salvo.")
   
-  # Mapa Coroplético: Média de Percentual de População Atendida por Água por UF na Região Norte
-  p_mapa_perc_agua_norte <- ggplot(estados_mapa_servicos_norte) +
-    geom_sf(aes(fill = media_perc_agua), color = "black", linewidth = 0.2) +
-    scale_fill_viridis_c(na.value = "grey80", option = "cividis", name = "Média % Atendido Água", labels = label_number(scale_cut = cut_short_scale())) +
-    labs(title = paste("Média de Percentual de População Urbana Atendida por Água por UF (Região Norte) – Ano", ano_mapa_norte), subtitle = "Dados do ano mais recente disponível") +
-    theme_void() + theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14), plot.subtitle = element_text(hjust = 0.5, size = 10), legend.position = "bottom", panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
-  print(p_mapa_perc_agua_norte)
-  ggsave("graficos/mapa_perc_agua_atendida_norte.png", plot = p_mapa_perc_agua_norte, width = 10, height = 8, dpi = 300)
-  cli::cli_alert_success("Mapa de percentual de água atendida (UF, Norte) salvo.")
+  # 5. Gráfico de pizza por UF na Região Norte (participação da população urbana total)
+  pop_urbana_uf_pizza_norte <- servico_agua_esgoto_norte |>
+    group_by(sigla_uf_nome) |>
+    summarise(total_pop_urbana = sum(populacao_urbana, na.rm = TRUE)) |>
+    mutate(perc = total_pop_urbana / sum(total_pop_urbana) * 100,
+           label = paste0(sigla_uf_nome, " (", round(perc, 1), "%)")) |>
+    arrange(desc(total_pop_urbana)) |>
+    collect()
+  
+  p_pop_urbana_uf_pizza_norte <- ggplot(pop_urbana_uf_pizza_norte, aes(x = "", y = total_pop_urbana, fill = sigla_uf_nome)) +
+    geom_bar(stat = "identity", width = 1) +
+    coord_polar("y") +
+    labs(title = "Participação da População Urbana Total por UF (Região Norte)") +
+    theme_void() + theme(legend.position = "right", panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white")) + geom_text(aes(label = label), position = position_stack(vjust = 0.5), color = "black", size = 3)
+  print(p_pop_urbana_uf_pizza_norte)
+  ggsave("graficos/pie_chart_pop_urbana_uf_norte.png", plot = p_pop_urbana_uf_pizza_norte, width = 10, height = 8, dpi = 300)
+  cli::cli_alert_success("Gráfico de pizza da população urbana por UF (Norte) salvo.")
 }

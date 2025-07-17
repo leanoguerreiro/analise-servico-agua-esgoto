@@ -21,7 +21,12 @@ executar_analise_completa_norte <- function(num_linhas_amostras = 57037) {
   # Você pode adicionar uma lógica aqui para perguntar ao usuário se deseja baixar
   # ou verificar se os arquivos já existem antes de baixar novamente.
   # Por enquanto, ele sempre tentará baixar.
-  baixar_e_salvar_dados() # Chama a função de download
+  
+  if (!dir.exists("dados/")) {
+    baixar_e_salvar_dados()
+  }else{
+    message("Diretório 'dados/' já existe. Pulando o download.")
+  }
   
   # 2. Carrega pacotes para a análise (os pacotes de download já foram carregados)
   carregar_pacotes() 

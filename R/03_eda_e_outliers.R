@@ -3,6 +3,11 @@
 realizar_eda_e_tratar_nas <- function(dados_lazy, num_linhas_amostras) {
   cli::cli_h1("Exploração Inicial e Análise de NAs")
   
+  # Cria a pasta 'graficos' se ela não existir. Necessário aqui pois esta função
+  # é a primeira a salvar gráficos como na_count_plot.png
+  dir.create("graficos", showWarnings = FALSE)
+  cli::cli_alert_info("Verificado/criado o diretório 'graficos/'.")
+  
   amostra <- dados_lazy |> head(num_linhas_amostras) |> collect()
   
   contagem_na <- amostra |>
@@ -25,8 +30,9 @@ realizar_eda_e_tratar_nas <- function(dados_lazy, num_linhas_amostras) {
       theme(axis.text.x = element_text(angle = 45, hjust = 1),
             panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
     print(p_na_count)
-    ggsave("na_count_plot.png", plot = p_na_count, width = 10, height = 6, dpi = 300)
-    cli::cli_alert_success("Gráfico de contagem de NAs salvo como 'na_count_plot.png'.")
+    # Caminho corrigido para salvar na pasta 'graficos'
+    ggsave("graficos/na_count_plot.png", plot = p_na_count, width = 10, height = 6, dpi = 300)
+    cli::cli_alert_success("Gráfico de contagem de NAs salvo como 'graficos/na_count_plot.png'.")
   } else {
     cli::cli_alert_info("Nenhuma coluna com valores NA encontrada para plotagem.")
   }
@@ -51,8 +57,9 @@ realizar_eda_e_tratar_nas <- function(dados_lazy, num_linhas_amostras) {
       theme_minimal() + scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
       theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
     print(p_na_agua_ano)
-    ggsave("na_agua_por_ano_plot.png", plot = p_na_agua_ano, width = 10, height = 6, dpi = 300)
-    cli::cli_alert_success("Gráfico de NAs em 'populacao_urbana_atendida_agua' por ano salvo como 'na_agua_por_ano_plot.png'.")
+    # Caminho corrigido para salvar na pasta 'graficos'
+    ggsave("graficos/na_agua_por_ano_plot.png", plot = p_na_agua_ano, width = 10, height = 6, dpi = 300)
+    cli::cli_alert_success("Gráfico de NAs em 'populacao_urbana_atendida_agua' por ano salvo como 'graficos/na_agua_por_ano_plot.png'.")
     
     na_link_check <- dados_lazy |>
       filter(is.na(populacao_urbana_atendida_agua)) |>
@@ -116,8 +123,9 @@ realizar_eda_e_tratar_nas <- function(dados_lazy, num_linhas_amostras) {
              x = "Ano", y = "UF") +
         theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "bottom", panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
       print(p_heatmap_data_presence)
-      ggsave("data_presence_heatmap.png", plot = p_heatmap_data_presence, width = 12, height = 8, dpi = 300)
-      cli::cli_alert_success("Heatmap de presença/ausência de dados salvo como 'data_presence_heatmap.png'.")
+      # Caminho corrigido para salvar na pasta 'graficos'
+      ggsave("graficos/data_presence_heatmap.png", plot = p_heatmap_data_presence, width = 12, height = 8, dpi = 300)
+      cli::cli_alert_success("Heatmap de presença/ausência de dados salvo como 'graficos/data_presence_heatmap.png'.")
     } else {
       cli::cli_alert_info("Não há dados suficientes de UFs para gerar o heatmap.")
     }
@@ -128,7 +136,7 @@ realizar_eda_e_tratar_nas <- function(dados_lazy, num_linhas_amostras) {
   # Coleta do dataset completo para análises que exigem os dados em memória
   servico_agua_esgoto <- dados_lazy |> head(num_linhas_amostras) |> collect()
   
-  # NOVO: Crie as colunas de percentual de atendimento AQUI, no dataframe completo
+  # Crie as colunas de percentual de atendimento AQUI, no dataframe completo
   servico_agua_esgoto <- servico_agua_esgoto |>
     mutate(
       perc_agua_atendida = ifelse(populacao_urbana > 0, (populacao_urbana_atendida_agua / populacao_urbana) * 100, 0),
@@ -136,11 +144,20 @@ realizar_eda_e_tratar_nas <- function(dados_lazy, num_linhas_amostras) {
     )
   cli::cli_alert_success("Colunas de percentuais de atendimento criadas no dataset completo.")
   
+  # DIAGNÓSTICO: Verificar colunas antes de retornar
+  cli::cli_alert_info("Colunas em 'servico_agua_esgoto' antes de retornar de 'realizar_eda_e_tratar_nas':")
+  print(colnames(servico_agua_esgoto))
+  
   return(servico_agua_esgoto)
 }
 
 filtrar_e_eda_norte <- function(servico_agua_esgoto) { # servico_agua_esgoto agora JÁ TEM as colunas de percentual
   cli::cli_h1("Filtrando dados para a Região Norte")
+  
+  # DIAGNÓSTICO: Verificar colunas no início de filtrar_e_eda_norte
+  cli::cli_alert_info("Colunas em 'servico_agua_esgoto' no início de 'filtrar_e_eda_norte':")
+  print(colnames(servico_agua_esgoto))
+  
   servico_agua_esgoto_norte <- servico_agua_esgoto |>
     filter(regiao == "Norte")
   
@@ -150,9 +167,6 @@ filtrar_e_eda_norte <- function(servico_agua_esgoto) { # servico_agua_esgoto ago
   } else {
     cli::cli_alert_info(paste("Dados filtrados para a Região Norte. Total de registros:", nrow(servico_agua_esgoto_norte)))
   }
-  
-  # REMOVIDO: O bloco mutate para perc_agua_atendida e perc_esgoto_atendido
-  # pois ele já foi feito na função 'realizar_eda_e_tratar_nas'
   
   cli::cli_h1("Análise Exploratória de Dados (EDA) Detalhada - Região Norte")
   cli::cli_alert_info("Estatísticas descritivas gerais da base da Região Norte:")
@@ -190,14 +204,29 @@ filtrar_e_eda_norte <- function(servico_agua_esgoto) { # servico_agua_esgoto ago
 detectar_outliers_norte <- function(servico_agua_esgoto_norte) {
   cli::cli_h1("Análise de Outliers (Critério IQR) - Região Norte")
   
-  q_agua_norte <- quantile(servico_agua_esgoto_norte$populacao_urbana_atendida_agua, c(.25, .75), na.rm = TRUE)
+  # Debugging: Print column names to confirm what's available
+  cli::cli_alert_info("Column names in servico_agua_esgoto_norte before outlier detection:")
+  print(colnames(servico_agua_esgoto_norte)) 
+  
+  # Verify column existence before proceeding
+  if (!"populacao_urbana_atendida_agua" %in% colnames(servico_agua_esgoto_norte)) {
+    cli::cli_alert_danger("Erro crítico: Coluna 'populacao_urbana_atendida_agua' não encontrada no dataframe para detecção de outliers. Verifique a origem dos dados.")
+    stop("Coluna essencial 'populacao_urbana_atendida_agua' ausente.")
+  }
+  if (!"volume_agua_produzido" %in% colnames(servico_agua_esgoto_norte)) {
+    cli::cli_alert_danger("Erro crítico: Coluna 'volume_agua_produzido' não encontrada no dataframe para detecção de outliers. Verifique a origem dos dados.")
+    stop("Coluna essencial 'volume_agua_produzido' ausente.")
+  }
+  
+  # Usando [[ ]] para acesso mais robusto à coluna
+  q_agua_norte <- quantile(servico_agua_esgoto_norte[["populacao_urbana_atendida_agua"]], c(.25, .75), na.rm = TRUE)
   iqr_agua_norte <- diff(q_agua_norte)
   lim_agua_norte <- list(inf = q_agua_norte[1] - 1.5 * iqr_agua_norte, sup = q_agua_norte[2] + 1.5 * iqr_agua_norte)
   
   servico_agua_esgoto_norte <- servico_agua_esgoto_norte |>
     mutate(outlier_agua_atendida = case_when(
-      populacao_urbana_atendida_agua < lim_agua_norte$inf ~ "Inferior",
-      populacao_urbana_atendida_agua > lim_agua_norte$sup ~ "Superior",
+      .data[["populacao_urbana_atendida_agua"]] < lim_agua_norte$inf ~ "Inferior", # Usando .data[[]] para garantir o escopo
+      .data[["populacao_urbana_atendida_agua"]] > lim_agua_norte$sup ~ "Superior",
       TRUE ~ "Normal"
     ))
   
@@ -205,14 +234,14 @@ detectar_outliers_norte <- function(servico_agua_esgoto_norte) {
   cli::cli_alert_info(paste0("Total de outliers (População Atendida por Água - Região Norte): ", n_out_agua_norte,
                              " (", round(100 * n_out_agua_norte / nrow(servico_agua_esgoto_norte), 2), "% dos dados )"))
   
-  q_volume_norte <- quantile(servico_agua_esgoto_norte$volume_agua_produzido, c(.25, .75), na.rm = TRUE)
+  q_volume_norte <- quantile(servico_agua_esgoto_norte[["volume_agua_produzido"]], c(.25, .75), na.rm = TRUE)
   iqr_volume_norte <- diff(q_volume_norte)
   lim_volume_norte <- list(inf = q_volume_norte[1] - 1.5 * iqr_volume_norte, sup = q_volume_norte[2] + 1.5 * iqr_volume_norte)
   
   servico_agua_esgoto_norte <- servico_agua_esgoto_norte |>
     mutate(outlier_volume_produzido = case_when(
-      volume_agua_produzido < lim_volume_norte$inf ~ "Inferior",
-      volume_agua_produzido > lim_volume_norte$sup ~ "Superior",
+      .data[["volume_agua_produzido"]] < lim_volume_norte$inf ~ "Inferior",
+      .data[["volume_agua_produzido"]] > lim_volume_norte$sup ~ "Superior",
       TRUE ~ "Normal"
     ))
   

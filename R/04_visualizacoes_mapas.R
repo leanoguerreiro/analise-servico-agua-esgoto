@@ -1,37 +1,6 @@
 # R/04_visualizacoes_mapas.R
 
 gerar_visualizacoes_norte <- function(servico_agua_esgoto_norte) {
-  cli::cli_h2("Visualizações da Distribuição de População Atendida e Volumes - Região Norte")
-  
-  p_hist_agua_norte <- ggplot(servico_agua_esgoto_norte, aes(populacao_urbana_atendida_agua)) +
-    geom_histogram(bins = 50, fill = "skyblue", color = "white") +
-    labs(title = "Distribuição da População Urbana Atendida por Água (Região Norte)", x = "População Atendida por Água", y = "Frequência") +
-    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
-    scale_x_continuous(labels = label_number(scale_cut = cut_short_scale())) +
-    theme_minimal() + theme(panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
-  print(p_hist_agua_norte)
-  ggsave("hist_pop_agua_atendida_norte.png", plot = p_hist_agua_norte, width = 10, height = 6, dpi = 300)
-  cli::cli_alert_success("Histograma de população atendida por água (Norte) salvo.")
-  
-  p_hist_esgoto_norte <- ggplot(servico_agua_esgoto_norte, aes(populacao_urbana_atendida_esgoto)) +
-    geom_histogram(bins = 50, fill = "lightcoral", color = "white") +
-    labs(title = "Distribuição da População Urbana Atendida por Esgoto (Região Norte)", x = "População Atendida por Esgoto", y = "Frequência") +
-    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
-    scale_x_continuous(labels = label_number(scale_cut = cut_short_scale())) +
-    theme_minimal() + theme(panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
-  print(p_hist_esgoto_norte)
-  ggsave("hist_pop_esgoto_atendida_norte.png", plot = p_hist_esgoto_norte, width = 10, height = 6, dpi = 300)
-  cli::cli_alert_success("Histograma de população atendida por esgoto (Norte) salvo.")
-  
-  p_hist_volume_produzido_norte <- ggplot(servico_agua_esgoto_norte, aes(volume_agua_produzido)) +
-    geom_histogram(bins = 50, fill = "lightgreen", color = "white") +
-    labs(title = "Distribuição do Volume de Água Produzido (Região Norte)", x = "Volume de Água Produzido (m³)", y = "Frequência") +
-    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
-    scale_x_continuous(labels = label_number(scale_cut = cut_short_scale())) +
-    theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
-  print(p_hist_volume_produzido_norte)
-  ggsave("hist_volume_agua_produzido_norte.png", plot = p_hist_volume_produzido_norte, width = 10, height = 6, dpi = 300)
-  cli::cli_alert_success("Histograma de volume de água produzido (Norte) salvo.")
   
   p_boxplot_perc_agua_uf_norte <- ggplot(servico_agua_esgoto_norte, aes(sigla_uf, perc_agua_atendida, fill = sigla_uf)) +
     geom_boxplot() +
