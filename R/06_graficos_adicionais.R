@@ -25,21 +25,21 @@ gerar_analises_agregadas_e_graficos_adicionais <- function(servico_agua_esgoto_n
   cli::cli_alert_success("Gráfico de total de população atendida por água (Norte) por ano salvo.")
   
   # 2. Média de Volume de Água Produzido por UF na Região Norte
-  volume_uf_norte <- servico_agua_esgoto_norte |>
-    group_by(sigla_uf_nome) |>
-    summarise(media_volume_produzido = mean(volume_agua_produzido, na.rm = TRUE)) |>
-    arrange(desc(media_volume_produzido)) |>
-    collect()
-  
-  p_volume_uf_norte <- ggplot(volume_uf_norte,
-                              aes(x = reorder(sigla_uf_nome, -media_volume_produzido), y = media_volume_produzido)) +
-    geom_bar(stat = "identity", fill = "steelblue") +
-    labs(title = "Média de Volume de Água Produzido por UF (Região Norte)", x = "UF", y = "Média de Volume (m³)") +
-    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
-    theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
-  print(p_volume_uf_norte)
-  ggsave("graficos/volume_agua_uf_norte.png", plot = p_volume_uf_norte, width = 10, height = 6, dpi = 300)
-  cli::cli_alert_success("Gráfico de média de volume de água produzido por UF (Norte) salvo.")
+  # volume_uf_norte <- servico_agua_esgoto_norte |>
+  #   group_by(sigla_uf_nome) |>
+  #   summarise(media_volume_produzido = mean(volume_agua_produzido, na.rm = TRUE)) |>
+  #   arrange(desc(media_volume_produzido)) |>
+  #   collect()
+  # 
+  # p_volume_uf_norte <- ggplot(volume_uf_norte,
+  #                             aes(x = reorder(sigla_uf_nome, -media_volume_produzido), y = media_volume_produzido)) +
+  #   geom_bar(stat = "identity", fill = "steelblue") +
+  #   labs(title = "Média de Volume de Água Produzido por UF (Região Norte)", x = "UF", y = "Média de Volume (m³)") +
+  #   scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+  #   theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
+  # print(p_volume_uf_norte)
+  # ggsave("graficos/volume_agua_uf_norte.png", plot = p_volume_uf_norte, width = 10, height = 6, dpi = 300)
+  # cli::cli_alert_success("Gráfico de média de volume de água produzido por UF (Norte) salvo.")
 
   # NOVO GRÁFICO: Média de Volume de Água Produzido vs. Consumido por UF na Região Norte
   cli::cli_h2("Comparação da Média de Volume de Água Produzido vs. Consumido por UF (Região Norte)")
