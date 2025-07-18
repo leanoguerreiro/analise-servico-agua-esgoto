@@ -49,7 +49,7 @@ gerar_mapas_coropleticos <- function(regioes_sf, dados_regiao_2021, estados, ser
   p_mapa_perc_agua_regiao_melhorado <- ggplot(mapa_dados_regiao_com_labels) +
     geom_sf(aes(fill = media_perc_agua_regiao), color = "black", linewidth = 0.4) +
     scale_fill_viridis_c(na.value = "grey80", option = "viridis", name = "Média de Atendimento de Água (%)", labels = label_number(suffix = "%"), breaks = c(20, 40, 60, 80, 100), limits = c(0, 100)) +
-    geom_sf_text(aes(geometry = centroide, label = label_perc_agua), stat = "sf_coordinates", color = "white", size = 4, fontface = "bold", bg.color = "black", bg.r = 0.05, check_overlap = TRUE) +
+    geom_sf_text(aes(geometry = centroide, label = label_perc_agua), stat = "sf_coordinates", color = "black", size = 4, fontface = "bold", bg.color = "black", bg.r = 0.05, check_overlap = TRUE) +
     labs(title = "Cobertura Média de Água Urbana por Região – Brasil (2021)", subtitle = "Percentual da População Urbana Atendida") +
     theme_void() +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16, margin = margin(b = 10)), plot.subtitle = element_text(hjust = 0.5, size = 12, margin = margin(b = 15)), legend.position = "bottom", legend.title = element_text(size = 12), legend.text = element_text(size = 10), panel.background = element_rect(fill = "lightblue", color = NA), plot.background = element_rect(fill = "lightblue", color = NA))
