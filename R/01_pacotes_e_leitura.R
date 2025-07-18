@@ -12,6 +12,7 @@ carregar_pacotes <- function() {
     library(DT)
     library(effsize)
     library(cli)
+    library(gtools)
   })
   cli::cli_alert_success("Pacotes carregados com sucesso!")
 }

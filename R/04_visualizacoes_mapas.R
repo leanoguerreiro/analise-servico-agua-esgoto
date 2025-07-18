@@ -9,7 +9,7 @@ gerar_visualizacoes_norte <- function(servico_agua_esgoto_norte) {
     scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
   print(p_boxplot_perc_agua_uf_norte)
-  ggsave("boxplot_perc_agua_uf_norte.png", plot = p_boxplot_perc_agua_uf_norte, width = 10, height = 6, dpi = 300)
+  ggsave("graficos/boxplot_perc_agua_uf_norte.png", plot = p_boxplot_perc_agua_uf_norte, width = 10, height = 6, dpi = 300)
   cli::cli_alert_success("Boxplot de percentual de água atendida por UF (Norte) salvo.")
   
   p_boxplot_perc_esgoto_uf_norte <- ggplot(servico_agua_esgoto_norte, aes(sigla_uf, perc_esgoto_atendido, fill = sigla_uf)) +
@@ -19,7 +19,7 @@ gerar_visualizacoes_norte <- function(servico_agua_esgoto_norte) {
     scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
   print(p_boxplot_perc_esgoto_uf_norte)
-  ggsave("boxplot_perc_esgoto_uf_norte.png", plot = p_boxplot_perc_esgoto_uf_norte, width = 10, height = 6, dpi = 300)
+  ggsave("graficos/boxplot_perc_esgoto_uf_norte.png", plot = p_boxplot_perc_esgoto_uf_norte, width = 10, height = 6, dpi = 300)
   cli::cli_alert_success("Boxplot de percentual de esgoto atendido por UF (Norte) salvo.")
   
   cli::cli_h2("Distribuição por Variáveis Categóricas - Região Norte")
@@ -29,7 +29,7 @@ gerar_visualizacoes_norte <- function(servico_agua_esgoto_norte) {
     scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
     theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white")) + guides(fill = "none")
   print(p_dist_uf_norte)
-  ggsave("dist_uf_norte.png", plot = p_dist_uf_norte, width = 10, height = 6, dpi = 300)
+  ggsave("graficos/dist_uf_norte.png", plot = p_dist_uf_norte, width = 10, height = 6, dpi = 300)
   cli::cli_alert_success("Gráfico de distribuição de registros por UF (Norte) salvo.")
 }
 
@@ -49,12 +49,12 @@ gerar_mapas_coropleticos <- function(regioes_sf, dados_regiao_2021, estados, ser
   p_mapa_perc_agua_regiao_melhorado <- ggplot(mapa_dados_regiao_com_labels) +
     geom_sf(aes(fill = media_perc_agua_regiao), color = "black", linewidth = 0.4) +
     scale_fill_viridis_c(na.value = "grey80", option = "viridis", name = "Média de Atendimento de Água (%)", labels = label_number(suffix = "%"), breaks = c(20, 40, 60, 80, 100), limits = c(0, 100)) +
-    geom_sf_text(aes(geometry = centroide, label = label_perc_agua), stat = "sf_coordinates", color = "white", size = 4, fontface = "bold", bg.color = "black", bg.r = 0.05, check_overlap = TRUE) +
+    geom_sf_text(aes(geometry = centroide, label = label_perc_agua), stat = "sf_coordinates", color = "black", size = 4, fontface = "bold", bg.color = "black", bg.r = 0.05, check_overlap = TRUE) +
     labs(title = "Cobertura Média de Água Urbana por Região – Brasil (2021)", subtitle = "Percentual da População Urbana Atendida") +
     theme_void() +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16, margin = margin(b = 10)), plot.subtitle = element_text(hjust = 0.5, size = 12, margin = margin(b = 15)), legend.position = "bottom", legend.title = element_text(size = 12), legend.text = element_text(size = 10), panel.background = element_rect(fill = "lightblue", color = NA), plot.background = element_rect(fill = "lightblue", color = NA))
   print(p_mapa_perc_agua_regiao_melhorado)
-  ggsave("mapa_perc_agua_regiao_2021_melhorado.png", plot = p_mapa_perc_agua_regiao_melhorado, width = 12, height = 9, dpi = 300)
+  ggsave("graficos/mapa_perc_agua_regiao_2021.png", plot = p_mapa_perc_agua_regiao_melhorado, width = 12, height = 9, dpi = 300)
   cli::cli_alert_success("Mapa de percentual de água por região (2021) salvo.")
   
   p_mapa_perc_esgoto_regiao_melhorado <- ggplot(mapa_dados_regiao_com_labels) +
@@ -65,7 +65,7 @@ gerar_mapas_coropleticos <- function(regioes_sf, dados_regiao_2021, estados, ser
     theme_void() +
     theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16, margin = margin(b = 10)), plot.subtitle = element_text(hjust = 0.5, size = 12, margin = margin(b = 15)), legend.position = "bottom", legend.title = element_text(size = 12), legend.text = element_text(size = 10), panel.background = element_rect(fill = "lightblue", color = NA), plot.background = element_rect(fill = "lightblue", color = NA))
   print(p_mapa_perc_esgoto_regiao_melhorado)
-  ggsave("mapa_perc_esgoto_regiao_2021_melhorado.png", plot = p_mapa_perc_esgoto_regiao_melhorado, width = 12, height = 9, dpi = 300)
+  ggsave("graficos/mapa_perc_esgoto_regiao_2021.png", plot = p_mapa_perc_esgoto_regiao_melhorado, width = 12, height = 9, dpi = 300)
   cli::cli_alert_success("Mapa de percentual de esgoto por região (2021) salvo.")
   
   cli::cli_h1("Mapas Coropléticos da Região Norte")
@@ -100,7 +100,7 @@ gerar_mapas_coropleticos <- function(regioes_sf, dados_regiao_2021, estados, ser
     labs(title = paste("Média de População Urbana Atendida por Água por UF (Região Norte) – Ano", ano_mapa_norte), subtitle = "Dados do ano mais recente disponível") +
     theme_void() + theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14), plot.subtitle = element_text(hjust = 0.5, size = 10), legend.position = "bottom", panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
   print(p_mapa_agua_norte)
-  ggsave("mapa_pop_agua_atendida_norte.png", plot = p_mapa_agua_norte, width = 10, height = 8, dpi = 300)
+  ggsave("graficos/mapa_pop_agua_atendida_norte.png", plot = p_mapa_agua_norte, width = 10, height = 8, dpi = 300)
   cli::cli_alert_success("Mapa de população atendida por água (UF, Norte) salvo.")
   
   p_mapa_esgoto_norte <- ggplot(estados_mapa_servicos_norte) +
@@ -109,7 +109,7 @@ gerar_mapas_coropleticos <- function(regioes_sf, dados_regiao_2021, estados, ser
     labs(title = paste("Média de População Urbana Atendida por Esgoto por UF (Região Norte) – Ano", ano_mapa_norte), subtitle = "Dados do ano mais recente disponível") +
     theme_void() + theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14), plot.subtitle = element_text(hjust = 0.5, size = 10), legend.position = "bottom", panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
   print(p_mapa_esgoto_norte)
-  ggsave("mapa_pop_esgoto_atendida_norte.png", plot = p_mapa_esgoto_norte, width = 10, height = 8, dpi = 300)
+  ggsave("graficos/mapa_pop_esgoto_atendida_norte.png", plot = p_mapa_esgoto_norte, width = 10, height = 8, dpi = 300)
   cli::cli_alert_success("Mapa de população atendida por esgoto (UF, Norte) salvo.")
   
   p_mapa_perc_agua_norte <- ggplot(estados_mapa_servicos_norte) +
@@ -118,6 +118,6 @@ gerar_mapas_coropleticos <- function(regioes_sf, dados_regiao_2021, estados, ser
     labs(title = paste("Média de Percentual de População Urbana Atendida por Água por UF (Região Norte) – Ano", ano_mapa_norte), subtitle = "Dados do ano mais recente disponível") +
     theme_void() + theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14), plot.subtitle = element_text(hjust = 0.5, size = 10), legend.position = "bottom", panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
   print(p_mapa_perc_agua_norte)
-  ggsave("mapa_perc_agua_atendida_norte.png", plot = p_mapa_perc_agua_norte, width = 10, height = 8, dpi = 300)
+  ggsave("graficos/mapa_perc_agua_atendida_norte.png", plot = p_mapa_perc_agua_norte, width = 10, height = 8, dpi = 300)
   cli::cli_alert_success("Mapa de percentual de água atendida (UF, Norte) salvo.")
 }
