@@ -1,0 +1,626 @@
+---
+title: "Relatório Final"
+author: "João Carlos & Leano Guerreiro"
+date: "2025-07-17"
+output:
+  html_document:
+    toc: true
+    number_sections: true
+    df_print: paged
+    theme: cosmo
+    highlight: tango
+    code_folding: hide
+    self_contained: true
+  pdf_document:
+    toc: true
+subtitle: Índice Brasileiro de Conectividade – Análise Completa
+fontsize: 11pt
+mainfont: Times New Roman
+sansfont: Helvetica
+monofont: Courier
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+options(encoding = "UTF-8")
+```
+
+# Introdução
+
+Este relatório tem como objetivo principal apresentar uma análise aprofundada sobre o **nível de população atendida por abastecimento de água e esgotamento sanitário** na Região Norte do Brasil, utilizando dados do período de 2012 a 2021. O saneamento básico é um pilar fundamental para a saúde pública, qualidade de vida e desenvolvimento socioeconômico de uma região. A Região Norte, com suas particularidades geográficas e demográficas, enfrenta desafios únicos na universalização desses serviços.
+
+Ao longo deste documento, exploraremos as disparidades na cobertura de saneamento não apenas em nível regional, mas também detalharemos as diferenças entre as Unidades da Federação (UFs) que a compõem. Serão analisados volumes produzidos e consumidos, a presença de outliers nos dados e a significância estatística das diferenças observadas. A metodologia empregada combinará análise exploratória de dados (EDA), visualizações geográficas (mapas coropléticos), detecção de outliers e testes de hipótese robustos, incluindo o cálculo do tamanho de efeito (Cohen's d). O presente trabalho visa, portanto, fornecer insights valiosos para a formulação de políticas públicas e direcionamento de investimentos em saneamento na Região Norte.
+
+A codificação do projeto foi estruturada em diversas funções separadas em diferentes arquivos .R, visando uma melhor organização, modularidade, manutenção e reutilização do código, garantindo a rastreabilidade e replicabilidade da análise.
+
+```{r echo=TRUE}
+  source("R/00_download_data.R")
+  source("R/01_pacotes_e_leitura.R")
+  source("R/02_preparacao_dados.R")
+  source("R/03_eda_e_outliers.R")
+  source("R/04_visualizacoes_mapas.R")
+  source("R/05_testes_estatisticos.R")
+  source("R/06_graficos_adicionais.R")
+  source("R/07_reflexoes_finais.R")
+```
+
+# Pacotes
+
+Esta seção detalha os pacotes R utilizados para a realização da análise. Cada pacote desempenha um papel crucial nas etapas de manipulação, visualização e inferência estatística dos dados, garantindo a execução eficiente e precisa das metodologias propostas.
+
+```{r echo=TRUE}
+  library(tidyverse) # Conjunto de pacotes essenciais para manipulação e visualização de dados
+  library(arrow)     # Para leitura eficiente de grandes datasets, como o formato Parquet
+  library(scales)    # Para formatação de escalas em gráficos
+  library(skimr)     # Para gerar estatísticas descritivas rápidas e completas
+  library(sf)        # Para manipulação e visualização de dados geoespaciais (Simple Features)
+  library(psych)     # Contém funções úteis para análise psicométrica e descritiva
+  library(DT)        # Para tabelas interativas em HTML
+  library(effsize)   # Para cálculo de tamanho de efeito, como Cohen's d
+  library(cli)       # Para mensagens de console formatadas e informativas
+  library(gtools)    # Para funções como 'combn', utilizada na geração de combinações para testes
+```
+
+# Autenticação e Download dos Dados
+
+A etapa inicial do projeto envolve a obtenção dos dados brutos que subsidiarão toda a análise. Para garantir a reprodutibilidade e a integridade da análise, os dados são primeiramente baixados e armazenados localmente. Esta seção descreve o processo de aquisição dos dados, fundamental para a consistência do estudo.
+
+```{r eval=FALSE, echo=TRUE}
+  query <- "
+    SELECT
+        dados.ano as ano,
+        dados.id_municipio AS id_municipio,
+        diretorio_id_municipio.nome AS id_municipio_nome,
+        dados.sigla_uf AS sigla_uf,
+        diretorio_sigla_uf.nome AS sigla_uf_nome,
+        dados.populacao_urbana as populacao_urbana,
+        dados.populacao_urbana_atendida_agua as populacao_urbana_atendida_agua,
+        dados.populacao_urbana_atendida_esgoto as populacao_urbana_atendida_esgoto,
+        dados.volume_agua_produzido as volume_agua_produzido,
+        dados.volume_agua_tratada_eta as volume_agua_tratada_eta,
+        dados.volume_agua_consumido as volume_agua_consumido
+    FROM basedosdados.br_mdr_snis.municipio_agua_esgoto AS dados
+    LEFT JOIN (SELECT DISTINCT id_municipio,nome  FROM basedosdados.br_bd_diretorios_brasil.municipio) AS diretorio_id_municipio
+        ON dados.id_municipio = diretorio_id_municipio.id_municipio
+    LEFT JOIN (SELECT DISTINCT sigla,nome  FROM basedosdados.br_bd_diretorios_brasil.uf) AS diretorio_sigla_uf
+        ON dados.sigla_uf = diretorio_sigla_uf.sigla
+    WHERE dados.ano BETWEEN 2012 AND 2021
+    "
+```
+
+
+```{r}
+  # 1. Executa a etapa de download (se necessário)
+  if (!dir.exists("dados/")) {
+    baixar_e_salvar_dados()
+  }else{
+    message("Diretório 'dados/' já existe. Pulando o download.")
+  }
+  
+  # 2. Carrega pacotes para a análise (os pacotes de download já foram carregados)
+  carregar_pacotes()
+```
+
+# Leitura dos Dados
+
+Após o download, os dados são lidos e carregados no ambiente R para processamento. Esta seção detalha como os conjuntos de dados, incluindo as informações de serviço de água e esgoto e as geometrias dos estados, são importados e preparados para as fases subsequentes de análise.
+
+```{r}
+  # Define o número de linhas para a amostra (ou defina NULL para carregar tudo)
+  num_linhas_para_analise <- 57037
+```
+
+
+```{r echo=TRUE}
+  # 3. Lê os dados agora que eles estão salvos localmente
+  dados_carregados <- ler_dados(num_linhas_para_analise)
+  dados_lazy <- dados_carregados$dados_lazy
+  estados <- dados_carregados$estados
+```
+
+# Definição de Regiões
+
+Para contextualizar a análise de saneamento, é essencial categorizar as observações por suas respectivas regiões geográficas. Esta seção descreve o processo de preparação das geometrias dos estados e a atribuição de cada município à sua região correspondente, facilitando análises regionais e comparativas.
+
+```{r eval=FALSE, echo=TRUE}
+  dados_lazy <- dados_lazy |>
+    mutate(regiao = case_when(
+      sigla_uf %in% c("AM", "RR", "AP", "PA", "RO", "AC", "TO") ~ "Norte",
+      sigla_uf %in% c("MT", "MS", "GO", "DF") ~ "Centro-Oeste",
+      sigla_uf %in% c("MA", "PI", "CE", "RN", "PB", "PE", "AL", "SE", "BA") ~ "Nordeste",
+      sigla_uf %in% c("SP", "RJ", "MG", "ES") ~ "Sudeste",
+      sigla_uf %in% c("PR", "SC", "RS") ~ "Sul",
+      TRUE ~ "Outras"
+    ))
+```
+
+
+```{r echo=TRUE}
+  # 4. Prepara geometrias e regiões
+  preparacao <- preparar_geometrias_e_regioes(estados, dados_lazy)
+  regioes_sf <- preparacao$regioes_sf
+  dados_lazy_com_regiao <- preparacao$dados_lazy
+```
+
+# Análise Exploratória dos Dados (EDA)
+
+A Análise Exploratória de Dados (EDA) é uma etapa fundamental para compreender a estrutura, a qualidade e as características iniciais do dataset. Através da EDA, podemos identificar padrões, anomalias e a presença de dados ausentes, que serão tratados para garantir a robustez das análises futuras.
+
+## Dataset completo
+
+Nesta subseção, realizamos uma EDA preliminar sobre o dataset completo de serviços de água e esgoto. Esta visão geral nos permite ter um panorama da totalidade dos dados antes de focar em recortes específicos.
+
+A contagem de valores ausentes por coluna (NA) revela que 'populacao_urbana_atendida_esgoto' possui o maior número de NAs, com 26895 registros, seguido por 'populacao_urbana_atendida_agua' com 134, 'volume_agua_produzido' com 99, 'volume_agua_consumido' com 99, e 'volume_agua_tratada_eta' com 95. As demais colunas (ano, id_municipio, id_municipio_nome, sigla_uf, sigla_uf_nome, populacao_urbana) não apresentam valores ausentes
+
+```{r}
+  # Cria a pasta 'graficos' se ela não existir
+  dir.create("graficos", showWarnings = FALSE)
+  cli::cli_alert_info("Verificado/criado o diretório 'graficos/'.")
+  
+  amostra <- dados_lazy |> head(num_linhas_para_analise) |> collect()
+  
+  contagem_na <- amostra |>
+    summarise(across(everything(), ~sum(is.na(.)))) |>
+    pivot_longer(cols = everything(), names_to = "coluna", values_to = "quantidade_na") |>
+    arrange(desc(quantidade_na))
+  
+  cli::cli_alert_info("Contagem de valores NA por coluna:")
+  cat("Contagem de valores NA por coluna:\n\n")
+  print(contagem_na)
+```
+
+```{r}
+  contagem_na_plot <- contagem_na |> filter(quantidade_na > 0)
+  p_na_count <- ggplot(contagem_na_plot, aes(x = reorder(coluna, -quantidade_na), y = quantidade_na)) +
+      geom_bar(stat = "identity", fill = "salmon", color = "black") +
+      labs(title = "Quantidade de Valores Ausentes (NA) por Coluna",
+           x = "Coluna", y = "Número de NAs") +
+      theme_minimal() +
+      scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1),
+            panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
+    print(p_na_count)
+```
+
+A distribuição de NAs para 'populacao_urbana_atendida_agua' ao longo dos anos mostra um pico de ausências em 2015, com mais de 40 registros, e uma redução significativa a partir de 2017.
+
+```{r}
+  na_agua_por_ano <- dados_lazy |>
+    filter(is.na(populacao_urbana_atendida_agua)) |>
+    group_by(ano) |>
+    summarise(
+      quantidade_na_agua = n(),
+      quantidade_na_esgoto_quando_agua_na = sum(is.na(populacao_urbana_atendida_esgoto), na.rm = TRUE)
+    ) |>
+    collect() |> arrange(ano)
+
+  p_na_agua_ano <- ggplot(na_agua_por_ano, aes(x = as.factor(ano), y = quantidade_na_agua)) +
+      geom_bar(stat = "identity", fill = "orangered", color = "black") +
+      labs(title = "NAs em 'populacao_urbana_atendida_agua' por Ano",
+           subtitle = "Contagem de registros onde a população atendida por água urbana não foi especificada",
+           x = "Ano", y = "Número de Registros com NA") +
+      theme_minimal() + scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
+    print(p_na_agua_ano)
+```
+
+Esta tabela apresenta as médias de percentual de população urbana atendida por serviços de água e esgoto para cada uma das grandes regiões do Brasil em 2021. Ela oferece uma visão consolidada do cenário nacional, permitindo uma rápida comparação do nível de atendimento entre as diferentes áreas geográficas do país. Conforme observado, a Região Norte registra os menores percentuais de cobertura tanto para abastecimento de água quanto para esgotamento sanitário.
+
+```{r include=FALSE}
+  servico_agua_esgoto <- realizar_eda_e_tratar_nas(dados_lazy_com_regiao, num_linhas_para_analise)
+```
+
+```{r}
+  dados_regiao_2021 <- servico_agua_esgoto |>
+    filter(ano == 2021) |>
+    group_by(regiao) |>
+    summarise(
+      media_perc_agua_regiao = mean(perc_agua_atendida, na.rm = TRUE),
+      media_perc_esgoto_regiao = mean(perc_esgoto_atendido, na.rm = TRUE),
+      .groups = 'drop'
+    ) |> collect()
+  
+  cat("Média de Percentuais de Água e Esgoto por Região (2021):\n\n")
+  print(dados_regiao_2021)
+```
+
+
+## Dataset da região Norte
+
+Considerando o foco deste relatório na Região Norte, uma EDA mais detalhada é conduzida especificamente para os dados pertinentes a essa região. Esta etapa é crucial para identificar as particularidades do saneamento no Norte do Brasil, incluindo suas médias, desvios e distribuições, que servirão de base para as visualizações e testes de hipótese subsequentes.
+
+A EDA detalhada para a 'servico_agua_esgoto_norte' (3627 linhas e 14 colunas) revela que, na Região Norte, o percentual do pupulação com água atendida tem uma média de 77.9% e para a população com esgot atendido há uma média de 33.5%, com 3 e 3054 NA's respectivamente.  Isso reforça a questão dos dados ausentes em esgoto na região.
+
+```{r}
+  servico_agua_esgoto_norte <- servico_agua_esgoto |>
+    filter(regiao == "Norte")
+  
+  if (nrow(servico_agua_esgoto_norte) == 0) {
+    cli::cli_alert_warning("Nenhum dado encontrado para a Região Norte. Verifique a coluna 'regiao' e os dados.")
+    stop("Análise interrompida: Sem dados para a Região Norte.")
+  } else {
+    cli::cli_alert_info(paste("Dados filtrados para a Região Norte. Total de registros:", nrow(servico_agua_esgoto_norte)))
+  }
+  
+  cat("Análise Exploratória de Dados (EDA) Detalhada - Região Norte\n\n")
+  skim(servico_agua_esgoto_norte) |> print()
+```
+
+As tabelas a seguir fornecem métricas essenciais como média, desvio padrão, mediana, mínimo, máximo e o número de observações (n) para a população urbana atendida por água e esgoto, bem como os respectivos percentuais. Esta granularidade permite identificar as características específicas de cada UF, revelando a variabilidade interna da região e servindo como base quantitativa para as comparações e testes de hipótese que serão apresentados posteriormente.
+
+```{r}
+  cat("Estatísticas Descritivas de População Urbana Atendida por Água por UF na Região Norte\n\n")
+  describeBy(servico_agua_esgoto_norte$populacao_urbana_atendida_agua, group = servico_agua_esgoto_norte$sigla_uf, mat = TRUE) |> print()
+```
+
+```{r}
+  cat("Estatísticas Descritivas de População Urbana Atendida por Esgoto por UF na Região Norte\n\n")
+  describeBy(servico_agua_esgoto_norte$populacao_urbana_atendida_esgoto, group = servico_agua_esgoto_norte$sigla_uf, mat = TRUE) |> print()
+```
+
+```{r}
+  cat("Estatísticas Descritivas de Percentual de População Atendida por Água por UF na Região Norte\n\n")
+  describeBy(servico_agua_esgoto_norte$perc_agua_atendida, group = servico_agua_esgoto_norte$sigla_uf, mat = TRUE) |> print()
+```
+
+```{r}
+  cat("Estatísticas Descritivas de Percentual de População Atendida por Esgoto por UF na Região Norte\n\n")
+  describeBy(servico_agua_esgoto_norte$perc_esgoto_atendido, group = servico_agua_esgoto_norte$sigla_uf, mat = TRUE) |> print()
+```
+
+
+# Visualizações
+
+A visualização de dados é uma ferramenta poderosa para comunicar insights complexos de forma intuitiva. Nesta seção, serão apresentados gráficos descritivos que ilustram a distribuição e o comportamento das variáveis de interesse para a Região Norte, como percentuais de atendimento e volumes.
+
+Os boxplots de "Percentual de População Urbana Atendida por Água por UF (Região Norte)" e "Percentual de População Urbana Atendida por Esgoto por UF (Região Norte)"  ilustram as disparidades significativas de cobertura entre as UFs da região.
+
+```{r}
+  p_boxplot_perc_agua_uf_norte <- ggplot(servico_agua_esgoto_norte, aes(sigla_uf, perc_agua_atendida, fill = sigla_uf)) +
+    geom_boxplot() +
+    theme_minimal() +
+    labs(title = "Percentual de População Urbana Atendida por Água por UF (Região Norte)", x = "UF", y = "Percentual Atendido (%)") +
+    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
+  print(p_boxplot_perc_agua_uf_norte)
+```
+
+```{r}
+  p_boxplot_perc_esgoto_uf_norte <- ggplot(servico_agua_esgoto_norte, aes(sigla_uf, perc_esgoto_atendido, fill = sigla_uf)) +
+    geom_boxplot() +
+    theme_minimal() +
+    labs(title = "Percentual de População Urbana Atendida por Esgoto por UF (Região Norte)", x = "UF", y = "Percentual Atendido (%)") +
+    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
+  print(p_boxplot_perc_esgoto_uf_norte)
+```
+
+Além disso, o gráfico de "Distribuição de Registros por UF (Região Norte)"  mostra a contagem de observações para cada UF, com Tocantins e Pará apresentando o maior número de registros no dataset.
+
+```{r}
+  p_dist_uf_norte <- ggplot(servico_agua_esgoto_norte, aes(x = fct_infreq(sigla_uf_nome), fill = sigla_uf_nome)) +
+    geom_bar() +
+    labs(title = "Distribuição de Registros por UF (Região Norte)", x = "UF", y = "Contagem") +
+    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+    theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white")) + guides(fill = "none")
+  print(p_dist_uf_norte)
+```
+
+# Detecção de Outliers
+
+A presença de outliers (observações atípicas) pode influenciar significativamente os resultados das análises estatísticas e a interpretação dos dados. Esta seção descreve o processo de identificação e, quando necessário, tratamento de outliers nas variáveis de população atendida e volumes para a Região Norte, garantindo que as análises subsequentes sejam robustas.
+
+```{r}
+  # Usando [[ ]] para acesso mais robusto à coluna
+  q_agua_norte <- quantile(servico_agua_esgoto_norte[["populacao_urbana_atendida_agua"]], c(.25, .75), na.rm = TRUE)
+  iqr_agua_norte <- diff(q_agua_norte)
+  lim_agua_norte <- list(inf = q_agua_norte[1] - 1.5 * iqr_agua_norte, sup = q_agua_norte[2] + 1.5 * iqr_agua_norte)
+  
+  servico_agua_esgoto_norte <- servico_agua_esgoto_norte |>
+    mutate(outlier_agua_atendida = case_when(
+      .data[["populacao_urbana_atendida_agua"]] < lim_agua_norte$inf ~ "Inferior", # Usando .data[[]] para garantir o escopo
+      .data[["populacao_urbana_atendida_agua"]] > lim_agua_norte$sup ~ "Superior",
+      TRUE ~ "Normal"
+    ))
+  
+  n_out_agua_norte <- servico_agua_esgoto_norte |> filter(outlier_agua_atendida != "Normal") |> nrow()
+  cli::cli_alert_info(paste0("Total de outliers (População Atendida por Água - Região Norte): ", n_out_agua_norte,
+                             " (", round(100 * n_out_agua_norte / nrow(servico_agua_esgoto_norte), 2), "% dos dados )"))
+  
+  q_volume_norte <- quantile(servico_agua_esgoto_norte[["volume_agua_produzido"]], c(.25, .75), na.rm = TRUE)
+  iqr_volume_norte <- diff(q_volume_norte)
+  lim_volume_norte <- list(inf = q_volume_norte[1] - 1.5 * iqr_volume_norte, sup = q_volume_norte[2] + 1.5 * iqr_volume_norte)
+  
+  servico_agua_esgoto_norte <- servico_agua_esgoto_norte |>
+    mutate(outlier_volume_produzido = case_when(
+      .data[["volume_agua_produzido"]] < lim_volume_norte$inf ~ "Inferior",
+      .data[["volume_agua_produzido"]] > lim_volume_norte$sup ~ "Superior",
+      TRUE ~ "Normal"
+    ))
+  
+  n_out_volume_norte <- servico_agua_esgoto_norte |> filter(outlier_volume_produzido != "Normal") |> nrow()
+  cli::cli_alert_info(paste0("Total de outliers (Volume de Água Produzido - Região Norte): ", n_out_volume_norte,
+                             " (", round(100 * n_out_volume_norte / nrow(servico_agua_esgoto_norte), 2), "% dos dados )"))
+  
+  cli::cli_h2("Tabela de Observações Consideradas Outliers (População Atendida por Água - Região Norte)")
+  outliers_table <- servico_agua_esgoto_norte |>
+    filter(outlier_agua_atendida != "Normal") |>
+    select(ano, sigla_uf, sigla_uf_nome, populacao_urbana_atendida_agua, outlier_agua_atendida, regiao)
+  
+  print(datatable(outliers_table, options = list(pageLength = 5),
+                    caption = "Observações consideradas outliers (População Atendida por Água - Região Norte)"))
+```
+
+# Visualizações de Mapas Coropléticos
+
+Os mapas coropléticos são essenciais para a visualização de dados georreferenciados, permitindo identificar padrões e disparidades espaciais na cobertura de saneamento. Nesta seção, apresentaremos mapas que ilustram a distribuição do percentual de atendimento de água e esgoto pelas UFs da Região Norte, bem como em nível nacional, destacando as áreas que demandam maior atenção.
+
+Os mapas de "Cobertura Média de Água Urbana por Região - Brasil (2021)" e "Cobertura Média de Esgoto Urbano por Região - Brasil (2021)"  fornecem uma visão macro da situação do saneamento no país, mostrando que a Região Norte apresenta as menores médias de atendimento em ambos os serviços.
+
+```{r}
+  mapa_dados_regiao <- regioes_sf |>
+    left_join(dados_regiao_2021, by = "regiao")
+  
+  mapa_dados_regiao_com_labels <- mapa_dados_regiao |>
+    mutate(
+      centroide = sf::st_centroid(geometry),
+      label_perc_agua = paste0(regiao, "\n", round(media_perc_agua_regiao, 1), "%"),
+      label_perc_esgoto = paste0(regiao, "\n", round(media_perc_esgoto_regiao, 1), "%")
+    )
+  
+  p_mapa_perc_agua_regiao_melhorado <- ggplot(mapa_dados_regiao_com_labels) +
+    geom_sf(aes(fill = media_perc_agua_regiao), color = "black", linewidth = 0.4) +
+    scale_fill_viridis_c(na.value = "grey80", option = "viridis", name = "Média de Atendimento de Água (%)", labels = label_number(suffix = "%"), breaks = c(20, 40, 60, 80, 100), limits = c(0, 100)) +
+    geom_sf_text(aes(geometry = centroide, label = label_perc_agua), stat = "sf_coordinates", color = "black", size = 4, fontface = "bold", bg.color = "black", bg.r = 0.05, check_overlap = TRUE) +
+    labs(title = "Cobertura Média de Água Urbana por Região – Brasil (2021)", subtitle = "Percentual da População Urbana Atendida") +
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16, margin = margin(b = 10)), plot.subtitle = element_text(hjust = 0.5, size = 12, margin = margin(b = 15)), legend.position = "bottom", legend.title = element_text(size = 12), legend.text = element_text(size = 10), panel.background = element_rect(fill = "lightblue", color = NA), plot.background = element_rect(fill = "lightblue", color = NA))
+  print(p_mapa_perc_agua_regiao_melhorado)
+```
+
+```{r}
+  p_mapa_perc_esgoto_regiao_melhorado <- ggplot(mapa_dados_regiao_com_labels) +
+    geom_sf(aes(fill = media_perc_esgoto_regiao), color = "black", linewidth = 0.4) +
+    scale_fill_viridis_c(na.value = "grey80", option = "magma", name = "Média de Atendimento de Esgoto (%)", labels = label_number(suffix = "%"), breaks = c(20, 40, 60, 80, 100), limits = c(0, 100)) +
+    geom_sf_text(aes(geometry = centroide, label = label_perc_esgoto), stat = "sf_coordinates", color = "white", size = 4, fontface = "bold", bg.color = "black", bg.r = 0.05, check_overlap = TRUE) +
+    labs(title = "Cobertura Média de Esgoto Urbano por Região – Brasil (2021)", subtitle = "Percentual da População Urbana Atendida") +
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 16, margin = margin(b = 10)), plot.subtitle = element_text(hjust = 0.5, size = 12, margin = margin(b = 15)), legend.position = "bottom", legend.title = element_text(size = 12), legend.text = element_text(size = 10), panel.background = element_rect(fill = "lightblue", color = NA), plot.background = element_rect(fill = "lightblue", color = NA))
+  print(p_mapa_perc_esgoto_regiao_melhorado)
+```
+
+Mapas mais detalhados para a Região Norte, como a "Média de População Urbana Atendida por Água por UF" e "Média de Percentual de População Urbana Atendida por Água por UF", visualizam as variações dentro da própria região.
+
+```{r}
+  servico_agua_esgoto_norte_for_map <- servico_agua_esgoto_norte
+  anos_disponiveis_mapa_norte <- servico_agua_esgoto_norte_for_map |> distinct(ano) |> pull(ano)
+  ano_mapa_norte <- max(anos_disponiveis_mapa_norte, na.rm = TRUE)
+  
+  agua_esgoto_por_uf_norte <- servico_agua_esgoto_norte_for_map |>
+    filter(ano == ano_mapa_norte) |>
+    group_by(sigla_uf, sigla_uf_nome, regiao) |>
+    summarise(
+      media_pop_agua = mean(populacao_urbana_atendida_agua, na.rm = TRUE),
+      media_pop_esgoto = mean(populacao_urbana_atendida_esgoto, na.rm = TRUE),
+      media_perc_agua = mean(perc_agua_atendida, na.rm = TRUE),
+      media_perc_esgoto = mean(perc_esgoto_atendido, na.rm = TRUE),
+      .groups = 'drop'
+    ) |> ungroup()
+  
+  estados_mapa_servicos_norte <- estados |>
+    filter(abbrev_state %in% c("AM", "RR", "AP", "PA", "RO", "AC", "TO")) |>
+    left_join(agua_esgoto_por_uf_norte, by = c("abbrev_state" = "sigla_uf"))
+  
+  p_mapa_agua_norte <- ggplot(estados_mapa_servicos_norte) +
+    geom_sf(aes(fill = media_pop_agua), color = "black", linewidth = 0.2) +
+    scale_fill_viridis_c(na.value = "grey80", option = "viridis", name = "Média Pop. Atendida Água", labels = label_number(scale_cut = cut_short_scale())) +
+    labs(title = paste("Média de População Urbana Atendida por Água por UF"), subtitle = "Dados do ano mais recente disponível") +
+    theme_void() + theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14), plot.subtitle = element_text(hjust = 0.5, size = 10), legend.position = "bottom", panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
+  print(p_mapa_agua_norte)
+```
+
+```{r}
+  p_mapa_esgoto_norte <- ggplot(estados_mapa_servicos_norte) +
+    geom_sf(aes(fill = media_pop_esgoto), color = "black", linewidth = 0.2) +
+    scale_fill_viridis_c(na.value = "grey80", option = "magma", name = "Média Pop. Atendida Esgoto", labels = label_number(scale_cut = cut_short_scale())) +
+    labs(title = paste("Média de População Urbana Atendida por Esgoto por UF"), subtitle = "Dados do ano mais recente disponível") +
+    theme_void() + theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14), plot.subtitle = element_text(hjust = 0.5, size = 10), legend.position = "bottom", panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
+  print(p_mapa_esgoto_norte)
+```
+
+```{r}
+  p_mapa_perc_agua_norte <- ggplot(estados_mapa_servicos_norte) +
+    geom_sf(aes(fill = media_perc_agua), color = "black", linewidth = 0.2) +
+    scale_fill_viridis_c(na.value = "grey80", option = "cividis", name = "Média % Atendido Água", labels = label_number(scale_cut = cut_short_scale())) +
+    labs(title = paste("Média de Percentual de População Urbana Atendida por Água por UF"), subtitle = "Dados do ano mais recente disponível") +
+    theme_void() + theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14), plot.subtitle = element_text(hjust = 0.5, size = 10), legend.position = "bottom", panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
+  print(p_mapa_perc_agua_norte)
+```
+
+
+# Testes de Hipótese
+
+Para além da análise descritiva e visual, os testes de hipótese são empregados para avaliar a significância estatística das diferenças observadas entre grupos. Nesta seção, realizaremos comparações formais entre as Unidades da Federação da Região Norte em relação às variáveis de saneamento, utilizando t-testes e calculando o Cohen's d para mensurar a magnitude dessas diferenças, fornecendo uma base robusta para as conclusões.
+
+Os testes comparativos entre UFs da Região Norte revelaram diversas diferenças estatisticamente significativas:
+
+```{r include=FALSE}
+  servico_agua_esgoto_norte_com_outliers <- detectar_outliers_norte(servico_agua_esgoto_norte)
+```
+
+```{r}
+  # 10. Realiza testes de hipótese e Cohen's d
+  realizar_testes_e_cohen_d(servico_agua_esgoto_norte_com_outliers)
+```
+
+# Gráficos adicionais
+
+Complementando as análises anteriores, esta seção apresenta gráficos adicionais que oferecem perspectivas complementares sobre os dados de saneamento na Região Norte. Estes gráficos podem incluir visualizações de séries temporais, distribuições específicas ou outras agregações que enriquecem a compreensão do cenário.
+
+Gráficos como a "Distribuição da População Urbana Atendida por Água por Ano (Região Norte)"  mostram a evolução do atendimento ao longo do tempo. A "Média de Volume de Água Produzido vs. Consumido por UF (Região Norte)"  detalha a relação entre produção e consumo em cada UF.
+
+```{r}
+  # 1. Total de População Urbana Atendida por Água por ano na Região Norte
+  pop_agua_ano_norte <- servico_agua_esgoto_norte |>
+    group_by(ano) |>
+    summarise(total_pop_agua = sum(populacao_urbana_atendida_agua, na.rm = TRUE)) |>
+    collect()
+  
+  p_pop_agua_ano_norte <- ggplot(pop_agua_ano_norte, aes(x = ano, y = total_pop_agua)) +
+    geom_line(color = "blue", linewidth = 1) +
+    geom_point(color = "red", size = 2) +
+    labs(title = "Distribuição da População Urbana Atendida por Água por Ano (Região Norte)", x = "Ano", y = "População Atendida") +
+    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+    scale_x_continuous(breaks = unique(pop_agua_ano_norte$ano)) +
+    theme_minimal() + theme(panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
+  print(p_pop_agua_ano_norte)
+```
+
+```{r}
+  # 2. Média de Volume de Água Produzido vs. Consumido por UF na Região Norte
+  volume_produzido_consumido_uf_norte <- servico_agua_esgoto_norte |>
+    group_by(sigla_uf_nome) |>
+    summarise(
+      media_volume_produzido = mean(volume_agua_produzido, na.rm = TRUE),
+      media_volume_consumido = mean(volume_agua_consumido, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    # Pivotar para formato longo para facilitar a plotagem com ggplot2
+    pivot_longer(
+      cols = starts_with("media_volume"),
+      names_to = "tipo_volume",
+      values_to = "valor_volume"
+    ) |>
+    mutate(
+      tipo_volume = case_when(
+        tipo_volume == "media_volume_produzido" ~ "Produzido",
+        tipo_volume == "media_volume_consumido" ~ "Consumido",
+        TRUE ~ tipo_volume # Garante que outros tipos, se houver, sejam mantidos
+      ),
+      # Reordenar as UFs com base na soma total do volume (para empilhamento horizontal)
+      sigla_uf_nome = fct_reorder(sigla_uf_nome, valor_volume, .fun = sum, .desc = FALSE) # Ordem inversa para que o maior fique em cima
+    ) |>
+    collect()
+
+  p_volume_prod_cons_uf_norte <- ggplot(volume_produzido_consumido_uf_norte, 
+                                        aes(y = sigla_uf_nome, x = valor_volume, fill = tipo_volume)) + # ALTERADO: x e y invertidos
+    geom_bar(stat = "identity", position = "stack", color = "white", linewidth = 0.2) +
+    labs(
+      title = "Média de Volume de Água Produzido vs. Consumido por UF (Região Norte)",
+      y = "UF", # ALTERADO: y-axis label
+      x = "Média de Volume (m³)", # ALTERADO: x-axis label
+      fill = "Tipo de Volume"
+    ) +
+    scale_x_continuous(labels = label_number(scale_cut = cut_short_scale())) + # ALTERADO: escala no eixo x
+    scale_fill_manual(values = c("Produzido" = "darkgreen", "Consumido" = "darkblue")) +
+    theme_minimal() +
+    theme(
+      axis.text.y = element_text(angle = 0, hjust = 1), # ALTERADO: ajuste para texto no eixo Y
+      panel.background = element_rect(fill = "white"),
+      plot.background = element_rect(fill = "white"),
+      legend.position = "bottom"
+    )
+  print(p_volume_prod_cons_uf_norte)
+```
+
+Além disso, a "Média do Percentual de População Atendida por Esgoto por UF (Região Norte)" e a "Evolução do Percentual de População Urbana Atendida por Água por UF"  fornecem insights adicionais sobre o panorama do saneamento na região.
+
+```{r}
+  # 3. Média de Percentual de População Atendida por Esgoto por UF na Região Norte
+  perc_esgoto_uf_norte <- servico_agua_esgoto_norte |>
+    group_by(sigla_uf_nome) |>
+    summarise(media_perc_esgoto = mean(perc_esgoto_atendido, na.rm = TRUE)) |>
+    arrange(desc(media_perc_esgoto)) |>
+    collect()
+  
+  p_perc_esgoto_uf_norte <- ggplot(perc_esgoto_uf_norte,
+                                   aes(x = reorder(sigla_uf_nome, -media_perc_esgoto), y = media_perc_esgoto, fill = sigla_uf_nome)) +
+    geom_bar(stat = "identity") +
+    labs(title = "Média do Percentual de População Atendida por Esgoto por UF (Região Norte)", x = "UF", y = "Média % Atendido") +
+    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+    theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white")) + guides(fill = "none")
+  print(p_perc_esgoto_uf_norte)
+```
+
+
+```{r}
+  # 4. Evolução do Percentual de População Atendida por Água por UF na Região Norte
+  perc_agua_uf_evolucao_norte <- servico_agua_esgoto_norte |>
+    filter(!is.na(perc_agua_atendida), !is.na(sigla_uf)) |>
+    group_by(ano, sigla_uf) |>
+    summarise(media_perc_agua = mean(perc_agua_atendida, na.rm = TRUE), .groups = "drop") |>
+    collect()
+  
+  p_perc_agua_uf_evolucao_norte <- ggplot(perc_agua_uf_evolucao_norte,
+                                          aes(x = ano, y = media_perc_agua, color = sigla_uf)) +
+    geom_line(linewidth = 1) +
+    geom_point(size = 2) +
+    labs(title = "Evolução do Percentual de População Urbana Atendida por Água por UF (Região Norte)", x = "Ano", y = "Média % Atendido") +
+    scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+    scale_x_continuous(breaks = unique(perc_agua_uf_evolucao_norte$ano)) +
+    theme_minimal() + theme(panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white"))
+  print(p_perc_agua_uf_evolucao_norte)
+```
+
+O gráfico de "Participação da População Urbana Total por UF (Região Norte)" ilustra a proporção da população urbana de cada UF na região, destacando Pará (42.6%) e Amazonas (22.4%) como as UFs com maior participação.
+
+```{r}
+  # 5. Gráfico de pizza por UF na Região Norte (participação da população urbana total)
+  pop_urbana_uf_pizza_norte <- servico_agua_esgoto_norte |>
+    group_by(sigla_uf_nome) |>
+    summarise(total_pop_urbana = sum(populacao_urbana, na.rm = TRUE)) |>
+    mutate(perc = total_pop_urbana / sum(total_pop_urbana) * 100,
+           label = paste0(sigla_uf_nome, " (", round(perc, 1), "%)")) |>
+    arrange(desc(total_pop_urbana)) |>
+    collect()
+  
+  p_pop_urbana_uf_pizza_norte <- ggplot(pop_urbana_uf_pizza_norte, aes(x = "", y = total_pop_urbana, fill = sigla_uf_nome)) +
+    geom_bar(stat = "identity", width = 1) +
+    coord_polar("y") +
+    labs(title = "Participação da População Urbana Total por UF (Região Norte)") +
+    theme_void() + theme(legend.position = "right", panel.background = element_rect(fill = "white"), plot.background = element_rect(fill = "white")) + geom_text(aes(label = label), position = position_stack(vjust = 0.5), color = "black", size = 3)
+  print(p_pop_urbana_uf_pizza_norte)
+```
+
+# Conclusão
+
+Este relatório apresentou uma análise abrangente sobre a cobertura e gestão dos serviços de água e esgoto na Região Norte do Brasil, focando em dados do período de 2012-2014. Através de uma metodologia que integrou análise exploratória, visualizações geográficas e testes de hipótese, foi possível desvendar as complexidades e os desafios enfrentados pela região.
+
+As principais observações e aprendizados da análise são os seguintes:
+
+1. **Dados Ausentes:** A presença de dados ausentes (NAs) em variáveis críticas como 'populacao_urbana_atendida_agua', 'populacao_urbana_atendida_esgoto', 'volume_agua_produzido', 'volume_agua_consumido' e 'populacao_urbana' foi uma constante. Esta ausência de reportes tem um impacto significativo nas estatísticas e visualizações, especialmente se a Região Norte apresentar uma alta proporção de valores não informados. A interpretação de dados não reportados como ausência de serviço ou volume exige cautela, e sugere a necessidade de aprimoramento na coleta e disponibilização de dados para uma representação mais fiel da realidade.
+
+2. **Disparidades na Cobertura de Serviços por UF (Região Norte):**
+
+- As análises visuais (boxplots e mapas coropléticos) demonstraram inequivocamente as **significativas disparidades na cobertura de saneamento básico entre as Unidades da Federação da própria Região Norte**.
+
+- Para o **abastecimento de água**, observou-se que a Região Norte, com uma média de 80.8% em 2021, possui a menor cobertura nacional. Internamente, UFs como Amapá (AP) e Pará (PA) apresentaram medianas de atendimento substancialmente mais baixas, indicando maiores desafios. Em contraste, Roraima (RR) e Tocantins (TO) mostraram coberturas mais elevadas, aproximando-se da universalização em muitos municípios.
+
+- Para o **esgotamento sanitário**, a situação é ainda mais crítica, com a Região Norte registrando a menor cobertura nacional, com uma média de 36.8% em 2021. Os boxplots revelaram que Amapá (AP), Amazonas (AM) e Rondônia (RO) possuem as menores medianas de percentual atendido, com vastas áreas urbanas sem cobertura de esgoto. Roraima (RR) e Tocantins (TO), embora apresentem medianas um pouco superiores, ainda refletem a necessidade urgente de expansão.
+
+- Essas disparidades sublinham a importância de políticas públicas e investimentos focados e diferenciados, direcionados especificamente para as UFs mais deficitárias dentro da região.
+
+3. **Análise de Volumes Produzidos e Consumidos: Indicadores de Eficiência:**
+
+- A análise dos volumes de água produzida e consumida por UF forneceu insights cruciais sobre a gestão e eficiência dos sistemas.
+
+- Observou-se que o Amazonas (AM) é a UF com a maior média de volume de água produzido, refletindo uma infraestrutura de captação e tratamento de grande escala. Contudo, a comparação entre o volume produzido e o volume consumido em todas as UFs revelou uma **discrepância notável**, com o volume produzido sendo consistentemente maior que o consumido.
+
+- Essa diferença acentuada, particularmente visível no Amazonas, é um forte indicativo de **altas perdas na distribuição de água** (perdas físicas e não-físicas), um problema crítico que afeta a sustentabilidade dos serviços e gera ineficiência. A redução dessas perdas deve ser uma prioridade para otimizar o uso da água e os recursos investidos.
+
+- Por outro lado, Tocantins (TO) apresentou os menores volumes absolutos de produção e consumo, sugerindo uma infraestrutura de menor escala ou menor demanda total em seus municípios.
+
+4. **Impacto e Interpretação dos Outliers:**
+
+- A detecção de outliers em variáveis como 'população atendida' e 'volumes' na Região Norte é um achado significativo. Essas observações extremas, que se afastam consideravelmente da maioria dos dados, podem representar realidades de grandes capitais ou municípios com infraestrutura de saneamento muito mais desenvolvida e volumes operacionais muito superiores à média regional.
+
+- A presença desses outliers é um lembrete de que a Região Norte, apesar de suas médias mais baixas em saneamento, possui "bolsões" de excelência ou grande escala. A interpretação deve considerar que, embora atípicos estatisticamente, esses pontos são representativos de grandes operações e não devem ser simplesmente descartados, mas entendidos como parte da heterogeneidade da região.
+
+5. **Significância Estatística e Relevância Prática das Diferenças (Cohen's d):**
+
+- Os testes de hipótese realizados entre as UFs da Região Norte (por exemplo, cite exemplos de testes e seus __P-valores__ e __Cohen's__ d aqui, como "AM vs. PA para água apresentou uma diferença significativa (p < 0.001) com um __Cohen's__ d de X, indicando um efeito Y") quantificaram as diferenças observadas visualmente.
+
+- A análise do **Cohen's d** revelou a **magnitude prática** dessas diferenças. Valores de Cohen's d [mencione aqui se foram pequenos, médios ou grandes, e cite exemplos para variáveis como percentual de água/esgoto e volumes] indicam que as disparidades na cobertura ou nos volumes entre os estados do Norte não são apenas estatisticamente detectáveis, mas possuem uma relevância substancial para a gestão e as políticas regionais. Isso corrobora a necessidade de intervenções direcionadas para reduzir essas desigualdades.
+
+Em suma, a análise ressalta que a Região Norte, apesar de seus avanços, ainda enfrenta consideráveis desafios no saneamento básico, especialmente no que tange ao esgotamento sanitário e à eficiência na distribuição de água. As disparidades entre as UFs são notáveis, exigindo abordagens personalizadas para alcançar a meta de universalização dos serviços e promover a saúde e o desenvolvimento sustentável em toda a região.
+
