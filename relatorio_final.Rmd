@@ -1,6 +1,6 @@
 ---
 title: "Relatório Final"
-author: "João Carlos & Leano Guerreiro"
+author: "João Carlos, Leano Guerreiro e Brayner Santana"
 date: "2025-07-17"
 output:
   html_document:
@@ -616,11 +616,11 @@ As principais observações e aprendizados da análise são os seguintes:
 
 - A presença desses outliers é um lembrete de que a Região Norte, apesar de suas médias mais baixas em saneamento, possui "bolsões" de excelência ou grande escala. A interpretação deve considerar que, embora atípicos estatisticamente, esses pontos são representativos de grandes operações e não devem ser simplesmente descartados, mas entendidos como parte da heterogeneidade da região.
 
-5. **Significância Estatística e Relevância Prática das Diferenças (Cohen's d):**
+5. **Resultados dos Testes de Hipótese e Implicações Práticas:**
 
-- Os testes de hipótese realizados entre as UFs da Região Norte (por exemplo, cite exemplos de testes e seus __P-valores__ e __Cohen's__ d aqui, como "AM vs. PA para água apresentou uma diferença significativa (p < 0.001) com um __Cohen's__ d de X, indicando um efeito Y") quantificaram as diferenças observadas visualmente.
+- Os testes de hipótese realizados entre as Unidades da Federação da Região Norte confirmaram, com alto grau de confiança estatística (p < 0.05), a existência de diferenças significativas tanto na cobertura de abastecimento de água quanto no volume de água produzido.
 
-- A análise do **Cohen's d** revelou a **magnitude prática** dessas diferenças. Valores de Cohen's d [mencione aqui se foram pequenos, médios ou grandes, e cite exemplos para variáveis como percentual de água/esgoto e volumes] indicam que as disparidades na cobertura ou nos volumes entre os estados do Norte não são apenas estatisticamente detectáveis, mas possuem uma relevância substancial para a gestão e as políticas regionais. Isso corrobora a necessidade de intervenções direcionadas para reduzir essas desigualdades.
+- Além da significância estatística, os valores de Cohen’s d revelaram que muitas dessas diferenças possuem também relevância prática considerável. Por exemplo, o comparativo entre TO e RO no percentual de atendimento de água revelou um efeito grande (Cohen’s d = -2.08), reforçando a disparidade entre os estados. Já para os volumes de água produzidos, a maioria das comparações indicou efeitos pequenos a muito pequenos (Cohen’s d entre 0.11 e 0.47), sugerindo que, apesar das diferenças médias, o impacto prático tende a ser mais discreto. Esses achados quantitativos complementam as análises visuais e reforçam a necessidade de intervenções específicas para reduzir desigualdades estruturais na oferta e eficiência dos serviços de saneamento na região.
 
 Em suma, a análise ressalta que a Região Norte, apesar de seus avanços, ainda enfrenta consideráveis desafios no saneamento básico, especialmente no que tange ao esgotamento sanitário e à eficiência na distribuição de água. As disparidades entre as UFs são notáveis, exigindo abordagens personalizadas para alcançar a meta de universalização dos serviços e promover a saúde e o desenvolvimento sustentável em toda a região.
 
