@@ -311,44 +311,35 @@ Além disso, o gráfico de "Distribuição de Registros por UF (Região Norte)" 
 A presença de outliers (observações atípicas) pode influenciar significativamente os resultados das análises estatísticas e a interpretação dos dados. Esta seção descreve o processo de identificação e, quando necessário, tratamento de outliers nas variáveis de população atendida e volumes para a Região Norte, garantindo que as análises subsequentes sejam robustas.
 
 ```{r}
-  # Usando [[ ]] para acesso mais robusto à coluna
-  q_agua_norte <- quantile(servico_agua_esgoto_norte[["populacao_urbana_atendida_agua"]], c(.25, .75), na.rm = TRUE)
-  iqr_agua_norte <- diff(q_agua_norte)
-  lim_agua_norte <- list(inf = q_agua_norte[1] - 1.5 * iqr_agua_norte, sup = q_agua_norte[2] + 1.5 * iqr_agua_norte)
-  
-  servico_agua_esgoto_norte <- servico_agua_esgoto_norte |>
-    mutate(outlier_agua_atendida = case_when(
-      .data[["populacao_urbana_atendida_agua"]] < lim_agua_norte$inf ~ "Inferior", # Usando .data[[]] para garantir o escopo
-      .data[["populacao_urbana_atendida_agua"]] > lim_agua_norte$sup ~ "Superior",
-      TRUE ~ "Normal"
-    ))
-  
-  n_out_agua_norte <- servico_agua_esgoto_norte |> filter(outlier_agua_atendida != "Normal") |> nrow()
-  cli::cli_alert_info(paste0("Total de outliers (População Atendida por Água - Região Norte): ", n_out_agua_norte,
-                             " (", round(100 * n_out_agua_norte / nrow(servico_agua_esgoto_norte), 2), "% dos dados )"))
-  
-  q_volume_norte <- quantile(servico_agua_esgoto_norte[["volume_agua_produzido"]], c(.25, .75), na.rm = TRUE)
-  iqr_volume_norte <- diff(q_volume_norte)
-  lim_volume_norte <- list(inf = q_volume_norte[1] - 1.5 * iqr_volume_norte, sup = q_volume_norte[2] + 1.5 * iqr_volume_norte)
-  
-  servico_agua_esgoto_norte <- servico_agua_esgoto_norte |>
-    mutate(outlier_volume_produzido = case_when(
-      .data[["volume_agua_produzido"]] < lim_volume_norte$inf ~ "Inferior",
-      .data[["volume_agua_produzido"]] > lim_volume_norte$sup ~ "Superior",
-      TRUE ~ "Normal"
-    ))
-  
-  n_out_volume_norte <- servico_agua_esgoto_norte |> filter(outlier_volume_produzido != "Normal") |> nrow()
-  cli::cli_alert_info(paste0("Total de outliers (Volume de Água Produzido - Região Norte): ", n_out_volume_norte,
-                             " (", round(100 * n_out_volume_norte / nrow(servico_agua_esgoto_norte), 2), "% dos dados )"))
-  
-  cli::cli_h2("Tabela de Observações Consideradas Outliers (População Atendida por Água - Região Norte)")
-  outliers_table <- servico_agua_esgoto_norte |>
-    filter(outlier_agua_atendida != "Normal") |>
-    select(ano, sigla_uf, sigla_uf_nome, populacao_urbana_atendida_agua, outlier_agua_atendida, regiao)
-  
-  print(datatable(outliers_table, options = list(pageLength = 5),
-                    caption = "Observações consideradas outliers (População Atendida por Água - Região Norte)"))
+  # Cálculo dos limites para detecção de outliers (água)
+q_agua_norte <- quantile(servico_agua_esgoto_norte[["populacao_urbana_atendida_agua"]], c(.25, .75), na.rm = TRUE)
+iqr_agua_norte <- diff(q_agua_norte)
+lim_agua_norte <- list(inf = q_agua_norte[1] - 1.5 * iqr_agua_norte, sup = q_agua_norte[2] + 1.5 * iqr_agua_norte)
+
+# Marcação de outliers
+servico_agua_esgoto_norte <- servico_agua_esgoto_norte |>
+  mutate(outlier_agua_atendida = case_when(
+    populacao_urbana_atendida_agua < lim_agua_norte$inf ~ "Inferior",
+    populacao_urbana_atendida_agua > lim_agua_norte$sup ~ "Superior",
+    TRUE ~ "Normal"
+  ))
+
+# Gerar mensagem de resumo
+n_out_agua_norte <- servico_agua_esgoto_norte |> filter(outlier_agua_atendida != "Normal") |> nrow()
+porcentagem <- round(100 * n_out_agua_norte / nrow(servico_agua_esgoto_norte), 2)
+cat("Total de outliers (População Atendida por Água - Região Norte):", n_out_agua_norte, 
+    "(", porcentagem, "% dos dados )\n\n")
+
+# Tabela com os outliers
+outliers_table <- servico_agua_esgoto_norte |>
+  filter(outlier_agua_atendida != "Normal") |>
+  select(ano, sigla_uf, sigla_uf_nome, populacao_urbana_atendida_agua, outlier_agua_atendida, regiao)
+
+# Exibir a tabela interativa no relatório
+DT::datatable(outliers_table, 
+              options = list(pageLength = 5), 
+              caption = "Observações consideradas outliers (População Atendida por Água - Região Norte)")
+
 ```
 
 # Visualizações de Mapas Coropléticos
